@@ -50,7 +50,11 @@ NUM_HOURS = 24
 DATA_DIR = PACKAGE_DIR / "data" / "input"
 LINKS_FILENAME = "mandl_links.csv"          # columns: from_stop,to_stop,travel_time
 OD_SUBDIR = "od"
-OD_FILENAME_PATTERN = "OD_{hour}.csv"       # 15 rows x 15 comma-separated values
+OD_FILENAME_PATTERN = "od_hour_{hour:02d}.csv"  # 15 rows x 15 comma-separated values
+# Number used in the FIRST OD file name.  0 -> od_hour_00.csv is hour 1 and
+# od_hour_23.csv is hour 24.
+# ASSUMPTION: od_hour_00 = 00:00-01:00 = model hour 1.
+OD_FILE_HOUR_BASE = 0
 
 # Stop numbering used in YOUR input files (1 -> stops are 1..15, 0 -> 0..14).
 # Internally the program always uses 1..15.
@@ -225,6 +229,7 @@ class ExperimentConfig:
     links_filename: str = LINKS_FILENAME
     od_subdir: str = OD_SUBDIR
     od_filename_pattern: str = OD_FILENAME_PATTERN
+    od_file_hour_base: int = OD_FILE_HOUR_BASE
     input_stop_id_base: int = INPUT_STOP_ID_BASE
     links_are_bidirectional: bool = LINKS_ARE_BIDIRECTIONAL
 

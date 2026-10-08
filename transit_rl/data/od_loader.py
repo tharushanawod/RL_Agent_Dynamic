@@ -49,18 +49,27 @@ def validate_od_matrix(matrix: np.ndarray, num_stops: int, label: str) -> None:
         raise ValueError(f"{label} contains negative demand")
 
 
-def load_od_matrices(od_dir: Path, pattern: str, num_hours: int, num_stops: int) -> List[np.ndarray]:
-    """Return a list of ``num_hours`` matrices; index 0 is OD_1 (hour 1)."""
+def load_od_matrices(od_dir: Path, pattern: str, num_hours: int, num_stops: int,
+                     file_hour_base: int = 1) -> List[np.ndarray]:
+    """Return a list of ``num_hours`` matrices; index 0 is model hour 1.
+
+    Model hour h is read from ``pattern.format(hour=h - 1 + file_hour_base)``,
+    e.g. base 0 -> hour 1 = od_hour_00.csv, base 1 -> hour 1 = OD_1.csv.
+    """
     od_dir = Path(od_dir)
     matrices: List[np.ndarray] = []
-    missing = [h for h in range(1, num_hours + 1) if not (od_dir / pattern.format(hour=h)).exists()]
+
+    def file_for(hour: int) -> Path:
+        return od_dir / pattern.format(hour=hour - 1 + file_hour_base)
+
+    missing = [file_for(h).name for h in range(1, num_hours + 1) if not file_for(h).exists()]
     if missing:
         raise PlaceholderDataError(
-            f"PLACEHOLDER: OD files missing in {od_dir} for hours {missing}. "
-            f"Expected files named like {pattern.format(hour=1)}."
+            f"PLACEHOLDER: OD files missing in {od_dir}: {missing}. "
+            f"Expected files named like {file_for(1).name}."
         )
     for hour in range(1, num_hours + 1):
-        path = od_dir / pattern.format(hour=hour)
+        path = file_for(hour)
         m = _read_matrix(path)
         validate_od_matrix(m, num_stops, f"OD_{hour} ({path.name})")
         if np.all(m == np.round(m)):

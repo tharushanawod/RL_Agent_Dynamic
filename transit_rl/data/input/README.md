@@ -20,11 +20,11 @@ from_stop,to_stop,travel_time
 * Validation: 15 stops, positive finite times, no self-loops, no stop without
   links, strongly connected network.
 
-## 2. `od/OD_1.csv` … `od/OD_24.csv` — hourly OD matrices
+## 2. `od/od_hour_00.csv` … `od/od_hour_23.csv` — hourly OD matrices
 
 * 15 rows × 15 comma-separated values, no header. Row = origin stop,
   column = destination stop, value = passengers in that hour.
-* `OD_1.csv` = hour 1 … `OD_24.csv` = hour 24.
+* `od_hour_00.csv` = model hour 1 … `od_hour_23.csv` = hour 24 (set by `OD_FILENAME_PATTERN` / `OD_FILE_HOUR_BASE` in config).
 * Validation: exactly 15×15, finite, non-negative. The diagonal is ignored by
   the assignment (`IGNORE_OD_DIAGONAL`).
 * The matrices are used exactly as supplied: no scaling, rounding,

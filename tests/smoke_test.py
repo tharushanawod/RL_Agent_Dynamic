@@ -47,7 +47,7 @@ def write_synthetic_data(folder: Path, seed: int = 0) -> None:
     for h in range(1, 25):
         m = nrng.integers(0, 60, size=(15, 15))
         np.fill_diagonal(m, 0)
-        np.savetxt(folder / "od" / f"OD_{h}.csv", m, fmt="%d", delimiter=",")
+        np.savetxt(folder / "od" / f"od_hour_{h - 1:02d}.csv", m, fmt="%d", delimiter=",")
 
 
 def main() -> None:
@@ -58,7 +58,7 @@ def main() -> None:
 
         cfg = dataclasses.replace(ExperimentConfig(), data_dir=data, num_episodes=30)
         net = load_network_from_csv(cfg.links_path, 15, True)
-        ods = load_od_matrices(cfg.od_dir, cfg.od_filename_pattern, 24, 15)
+        ods = load_od_matrices(cfg.od_dir, cfg.od_filename_pattern, 24, 15, cfg.od_file_hour_base)
         env = TransitEnvironment(net, ods, cfg)
 
         # OD matrices must stay untouched by training.

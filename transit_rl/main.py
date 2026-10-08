@@ -68,7 +68,8 @@ def main(argv=None) -> int:
     try:
         network = load_network_from_csv(cfg.links_path, cfg.num_stops, cfg.links_are_bidirectional,
                                         cfg.input_stop_id_base)
-        od_matrices = load_od_matrices(cfg.od_dir, cfg.od_filename_pattern, cfg.num_hours, cfg.num_stops)
+        od_matrices = load_od_matrices(cfg.od_dir, cfg.od_filename_pattern, cfg.num_hours, cfg.num_stops,
+                                       cfg.od_file_hour_base)
     except PlaceholderDataError as exc:
         print(f"\nINPUT DATA MISSING:\n  {exc}\nSee transit_rl/data/input/README.md\n", file=sys.stderr)
         return 2
