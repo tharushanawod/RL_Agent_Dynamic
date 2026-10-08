@@ -1,0 +1,3 @@
+from_stop,to_stop,travel_time
+# PLACEHOLDER: insert the real Mandl Swiss network links below (one row per link).
+# Example row format only (NOT real data):  1,2,8
