@@ -51,10 +51,18 @@ DATA_DIR = PACKAGE_DIR / "data" / "input"
 LINKS_FILENAME = "mandl_links.csv"          # columns: from_stop,to_stop,travel_time
 OD_SUBDIR = "od"
 OD_FILENAME_PATTERN = "od_hour_{hour:02d}.csv"  # 15 rows x 15 comma-separated values
-# Number used in the FIRST OD file name.  0 -> od_hour_00.csv is hour 1 and
-# od_hour_23.csv is hour 24.
-# ASSUMPTION: od_hour_00 = 00:00-01:00 = model hour 1.
+# Smallest number used in the OD file names (0 -> files od_hour_00 .. od_hour_23).
+# The file number is treated as the clock hour (od_hour_08 = 08:00-09:00).
 OD_FILE_HOUR_BASE = 0
+# Clock hour (file number) of the FIRST hour of every episode.  The episode
+# then runs forward and wraps around midnight:
+#     8 -> od_hour_08, 09, ..., 23, 00, 01, ..., 07
+# Rationale: the high-demand morning peak lets the agent build a meaningful
+# network first, which later hours then adapt.  Episode step t = 1..24 is the
+# position in this sequence (state field ``hour``); the clock hour is reported
+# alongside it in all outputs.  There is no transition cost between the last
+# step (07:00) and the first step (08:00), because each episode is one pass.
+OD_START_FILE_HOUR = 8
 
 # Stop numbering used in YOUR input files (1 -> stops are 1..15, 0 -> 0..14).
 # Internally the program always uses 1..15.
@@ -230,6 +238,7 @@ class ExperimentConfig:
     od_subdir: str = OD_SUBDIR
     od_filename_pattern: str = OD_FILENAME_PATTERN
     od_file_hour_base: int = OD_FILE_HOUR_BASE
+    od_start_file_hour: int = OD_START_FILE_HOUR
     input_stop_id_base: int = INPUT_STOP_ID_BASE
     links_are_bidirectional: bool = LINKS_ARE_BIDIRECTIONAL
 
@@ -309,6 +318,15 @@ class ExperimentConfig:
         """Replication numbers are 1-based."""
         return self.base_random_seed + replication - 1
 
+    def od_file_number(self, step: int) -> int:
+        """OD file number (= clock hour) used at episode step ``step`` (1-based)."""
+        offset = self.od_start_file_hour - self.od_file_hour_base
+        return self.od_file_hour_base + (offset + step - 1) % self.num_hours
+
+    def od_file_numbers(self) -> list:
+        """File numbers in episode order, e.g. [8, 9, ..., 23, 0, ..., 7]."""
+        return [self.od_file_number(t) for t in range(1, self.num_hours + 1)]
+
     @property
     def links_path(self) -> Path:
         return Path(self.data_dir) / self.links_filename
@@ -337,6 +355,8 @@ class ExperimentConfig:
             (self.qtable_csv_od_mode in ("inline", "reference"), "bad QTABLE_CSV_OD_MODE"),
             (self.max_steps_per_hour >= 1, "max_steps_per_hour >= 1"),
             (self.input_stop_id_base in (0, 1), "input_stop_id_base must be 0 or 1"),
+            (self.od_file_hour_base <= self.od_start_file_hour < self.od_file_hour_base + self.num_hours,
+             "OD_START_FILE_HOUR must be one of the OD file numbers"),
         ]
         for ok, message in checks:
             if not ok:

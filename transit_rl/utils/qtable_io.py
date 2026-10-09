@@ -27,7 +27,7 @@ from ..agent.q_learning_agent import QTable, VisitTable
 from ..environment.actions import action_from_string
 from ..environment.state import json_fields_to_key, key_to_json_fields
 
-COLUMNS = ["replication", "hour", "od_matrix", "current_route", "current_service_plan",
+COLUMNS = ["replication", "hour", "clock_hour", "od_matrix", "current_route", "current_service_plan",
            "previous_service_plan", "fleet_remaining", "action", "q_value", "visit_count"]
 
 # OD JSON cells can be large; make sure the csv module accepts them on load.
@@ -35,8 +35,13 @@ csv.field_size_limit(min(sys.maxsize, 2**31 - 1))
 
 
 def save_q_table_csv(path: Path, q: QTable, visits: VisitTable, replication: int,
-                     od_mode: str = "inline") -> int:
-    """Stream the Q-table to CSV; returns the number of rows written."""
+                     od_mode: str = "inline", clock_hours: Optional[Dict[int, int]] = None) -> int:
+    """Stream the Q-table to CSV; returns the number of rows written.
+
+    ``hour`` is the episode step t (the state field); ``clock_hour`` is the
+    OD file number used at that step (informational, from ``clock_hours``).
+    """
+    clock_hours = clock_hours or {}
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     od_json_by_hour: Dict[int, str] = {}
@@ -53,7 +58,7 @@ def save_q_table_csv(path: Path, q: QTable, visits: VisitTable, replication: int
                 fields["od_matrix"] = f"REF:{hour}"
             vrow = visits.get(key, {})
             for action, value in actions.items():
-                writer.writerow([replication, hour, fields["od_matrix"], fields["current_route"],
+                writer.writerow([replication, hour, clock_hours.get(hour, ""), fields["od_matrix"], fields["current_route"],
                                  fields["current_service_plan"], fields["previous_service_plan"],
                                  fields["fleet_remaining"], str(action), repr(float(value)),
                                  vrow.get(action, 0)])

@@ -22,7 +22,7 @@ python tests/smoke_test.py
 
 | # | Topic | Implementation |
 |---|---|---|
-| 1 | Episode | One full day: hours 1→24, OD_1 → OD_24 (`TransitEnvironment.reset` … `done`). |
+| 1 | Episode | One full day of 24 hourly steps, starting at the morning peak: `od_hour_08` → … → `od_hour_23` → `od_hour_00` → … → `od_hour_07` (`OD_START_FILE_HOUR` in config). |
 | 2 | RL step | One agent action (`TransitEnvironment.step`). An hour takes many steps. |
 | 3 | State | `(t, OD_t, R_current, P_current, P_{t-1}, F_remaining)` (`environment/state.py`). OD is the full 15×15 tuple, the route is the full stop sequence, both plans are full `(route, frequency[, kept])` records. |
 | 4 | Action | `Action(type, arg)`: `ADD_STOP(j)`, `REMOVE_LAST_STOP`, `END_ROUTE`, `INCREASE_FREQUENCY(k)`, `DECREASE_FREQUENCY(k)`, `KEEP_ROUTE(k)`, `REMOVE_ROUTE(k)`, `FINISH_PLAN`; `k` = index in the current plan. |

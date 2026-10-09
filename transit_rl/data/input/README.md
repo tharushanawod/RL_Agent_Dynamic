@@ -24,7 +24,8 @@ from_stop,to_stop,travel_time
 
 * 15 rows × 15 comma-separated values, no header. Row = origin stop,
   column = destination stop, value = passengers in that hour.
-* `od_hour_00.csv` = model hour 1 … `od_hour_23.csv` = hour 24 (set by `OD_FILENAME_PATTERN` / `OD_FILE_HOUR_BASE` in config).
+* The file number is the clock hour (`od_hour_08.csv` = 08:00–09:00). Each episode starts at
+  `OD_START_FILE_HOUR` (default 8) and wraps around midnight: 08, 09, …, 23, 00, …, 07.
 * Validation: exactly 15×15, finite, non-negative. The diagonal is ignored by
   the assignment (`IGNORE_OD_DIAGONAL`).
 * The matrices are used exactly as supplied: no scaling, rounding,

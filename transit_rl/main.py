@@ -69,7 +69,7 @@ def main(argv=None) -> int:
         network = load_network_from_csv(cfg.links_path, cfg.num_stops, cfg.links_are_bidirectional,
                                         cfg.input_stop_id_base)
         od_matrices = load_od_matrices(cfg.od_dir, cfg.od_filename_pattern, cfg.num_hours, cfg.num_stops,
-                                       cfg.od_file_hour_base)
+                                       cfg.od_file_numbers())
     except PlaceholderDataError as exc:
         print(f"\nINPUT DATA MISSING:\n  {exc}\nSee transit_rl/data/input/README.md\n", file=sys.stderr)
         return 2
@@ -79,6 +79,8 @@ def main(argv=None) -> int:
     print(f"Network: {network.num_stops} stops, {network.num_links()} directed links | "
           f"{len(od_matrices)} OD matrices | {cfg.num_replications} replications x {cfg.num_episodes} episodes "
           f"| epsilon decay {cfg.resolved_epsilon_decay():.6f}/episode")
+    order = [cfg.od_filename_pattern.format(hour=n) for n in cfg.od_file_numbers()]
+    print(f"Episode hour order: {order[0]} -> {order[1]} -> ... -> {order[-1]}")
     if cfg.make_plots and not plotting.plotting_available():
         print("matplotlib not installed - plots will be skipped.")
     with (results_dir / "config_used.json").open("w", encoding="utf-8") as fh:

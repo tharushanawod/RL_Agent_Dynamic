@@ -1,7 +1,9 @@
 """
 Time-dependent transit network design environment.
 
-    1 episode = hours 1..24 processed in sequence (OD_1 -> ... -> OD_24)
+    1 episode = 24 hourly steps t = 1..24 processed in sequence.  Step t uses
+                the OD file given by ExperimentConfig.od_file_number(t); by
+                default the day starts at 08:00 (od_hour_08 ... 23, 00 ... 07).
     1 RL step = one action of the agent
 
 Hour lifecycle
@@ -234,8 +236,11 @@ class TransitEnvironment:
 
         p_t = reset_kept_flags(self.current_plan)
         self.hourly_plans[self.hour] = p_t   # P[t] (immutable copy)
+        clock = self.cfg.od_file_number(self.hour)
         record = {
-            "hour": self.hour,
+            "hour": self.hour,                      # episode step t (1..24)
+            "clock_hour": clock,                    # e.g. 8 for 08:00-09:00
+            "od_file": self.cfg.od_filename_pattern.format(hour=clock),
             "routes": [list(rs.route) for rs in p_t],
             "frequencies": [rs.frequency for rs in p_t],
             "buses_per_route": final.buses_per_route,

@@ -14,7 +14,7 @@ otherwise floats are kept exactly as parsed.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List, Tuple, Union
+from typing import List, Sequence, Tuple, Union
 
 import numpy as np
 
@@ -50,17 +50,20 @@ def validate_od_matrix(matrix: np.ndarray, num_stops: int, label: str) -> None:
 
 
 def load_od_matrices(od_dir: Path, pattern: str, num_hours: int, num_stops: int,
-                     file_hour_base: int = 1) -> List[np.ndarray]:
-    """Return a list of ``num_hours`` matrices; index 0 is model hour 1.
+                     file_numbers: Sequence[int]) -> List[np.ndarray]:
+    """Return ``num_hours`` matrices in EPISODE order.
 
-    Model hour h is read from ``pattern.format(hour=h - 1 + file_hour_base)``,
-    e.g. base 0 -> hour 1 = od_hour_00.csv, base 1 -> hour 1 = OD_1.csv.
+    Episode step t (1-based) uses file ``pattern.format(hour=file_numbers[t-1])``,
+    e.g. file_numbers = [8, ..., 23, 0, ..., 7] -> step 1 = od_hour_08.csv.
+    Only the order of the matrices changes; their values are untouched.
     """
     od_dir = Path(od_dir)
     matrices: List[np.ndarray] = []
+    if len(file_numbers) != num_hours or len(set(file_numbers)) != num_hours:
+        raise ValueError(f"Need {num_hours} distinct OD file numbers, got {list(file_numbers)}")
 
     def file_for(hour: int) -> Path:
-        return od_dir / pattern.format(hour=hour - 1 + file_hour_base)
+        return od_dir / pattern.format(hour=file_numbers[hour - 1])
 
     missing = [file_for(h).name for h in range(1, num_hours + 1) if not file_for(h).exists()]
     if missing:
@@ -71,7 +74,7 @@ def load_od_matrices(od_dir: Path, pattern: str, num_hours: int, num_stops: int,
     for hour in range(1, num_hours + 1):
         path = file_for(hour)
         m = _read_matrix(path)
-        validate_od_matrix(m, num_stops, f"OD_{hour} ({path.name})")
+        validate_od_matrix(m, num_stops, f"step {hour} ({path.name})")
         if np.all(m == np.round(m)):
             m = m.astype(np.int64)
         m.setflags(write=False)  # the OD matrix must never be modified

@@ -28,7 +28,7 @@ CURVE_COLUMNS = [
 ]
 
 HOURLY_PLAN_COLUMNS = [
-    "hour", "routes", "frequencies", "buses_per_route", "total_fleet_used",
+    "hour", "step", "clock_hour", "od_file", "routes", "frequencies", "buses_per_route", "total_fleet_used",
     "total_passenger_travel_time", "total_in_vehicle_time", "total_waiting_time", "average_waiting_time",
     "average_travel_time", "direct_passengers", "one_transfer_passengers", "two_transfer_passengers",
     "transfer_passengers", "unserved_passengers", "overload_passengers", "total_demand",
@@ -90,15 +90,20 @@ def _json_cell(v: Any) -> Any:
     return json.dumps(v) if isinstance(v, (list, dict, tuple)) else v
 
 
+def _hour_label(record: Dict[str, Any]) -> str:
+    """Clock-hour label, e.g. 'hour_08' for the plan built from od_hour_08."""
+    return f"hour_{record['clock_hour']:02d}"
+
+
 def save_hourly_plans(records: Sequence[Dict[str, Any]], out_dir: Path) -> None:
     with (out_dir / "hourly_service_plans.csv").open("w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh)
         w.writerow(HOURLY_PLAN_COLUMNS)
         for r in records:
-            row = dict(r, hour=f"hour_{r['hour']:02d}")
+            row = dict(r, hour=_hour_label(r), step=r["hour"])
             w.writerow([_json_cell(row[c]) for c in HOURLY_PLAN_COLUMNS])
     with (out_dir / "hourly_service_plans.json").open("w", encoding="utf-8") as fh:
-        json.dump({f"hour_{r['hour']:02d}": r for r in records}, fh, indent=2)
+        json.dump({_hour_label(r): r for r in records}, fh, indent=2)
 
 
 def train_replication(replication: int, cfg: ExperimentConfig, network: TransitNetwork,
@@ -160,7 +165,9 @@ def train_replication(replication: int, cfg: ExperimentConfig, network: TransitN
 
     # ---- Q-table + state-space statistics -----------------------------------
     qpath = out_dir / "q_table.csv"
-    rows = qtable_io.save_q_table_csv(qpath, agent.q, agent.visits, replication, cfg.qtable_csv_od_mode)
+    rows = qtable_io.save_q_table_csv(
+        qpath, agent.q, agent.visits, replication, cfg.qtable_csv_od_mode,
+        {t: cfg.od_file_number(t) for t in range(1, cfg.num_hours + 1)})
     stats = {
         "replication": replication,
         "random_seed": seed,
