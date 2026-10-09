@@ -36,6 +36,9 @@ def parse_args(argv=None) -> argparse.Namespace:
     p.add_argument("--seed", type=int, help="base random seed")
     p.add_argument("--log-every", type=int, help="console/progress logging interval (episodes)")
     p.add_argument("--no-plots", action="store_true", help="disable matplotlib plots")
+    p.add_argument("--start-hour", type=int, metavar="H",
+                   help="OD file number to start each episode with, e.g. 8 -> od_hour_08, 09, ..., 23, 00, ..., 07 "
+                        "(default: OD_START_FILE_HOUR in config)")
     p.add_argument("--od-mode", choices=["inline", "reference"], help="Q-table CSV OD storage mode")
     return p.parse_args(argv)
 
@@ -56,6 +59,8 @@ def build_config(args: argparse.Namespace) -> ExperimentConfig:
         overrides["log_every"] = args.log_every
     if args.no_plots:
         overrides["make_plots"] = False
+    if args.start_hour is not None:
+        overrides["od_start_file_hour"] = args.start_hour
     if args.od_mode is not None:
         overrides["qtable_csv_od_mode"] = args.od_mode
     cfg = dataclasses.replace(ExperimentConfig(), **overrides)
