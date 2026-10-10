@@ -123,7 +123,10 @@ class TransitEnvironment:
         self.steps_in_hour = 0
         self.hour_rl_reward = 0.0
         self._current_eval: Optional[PlanEvaluation] = (
-            self.evaluate_plan(self.current_plan) if self.cfg.reward_mode == "delta" else None)
+            self.evaluate_plan(self.current_plan)
+            if self.cfg.reward_mode in ("delta", "dense") else None)
+        self._hour_start_reward = (
+            self._current_eval.reward["total_reward"] if self._current_eval is not None else 0.0)
 
     @property
     def state(self) -> EnvironmentState:
@@ -155,6 +158,19 @@ class TransitEnvironment:
         return PlanEvaluation(assignment, transition, buses, sum(buses), reward)
 
     # ------------------------------------------------------------------ step
+    def _evaluate_action_plan(self) -> PlanEvaluation:
+        """Score the committed plan plus a feasible route under construction.
+
+        Tentative routes affect reward feedback only: they reserve no buses
+        and are not stored in the service plan until END_ROUTE. A duplicate,
+        too-short, or fleet-infeasible route contributes no tentative service.
+        """
+        frequency = self.masker.end_route_frequency(self.state)
+        plan = self.current_plan
+        if frequency is not None:
+            plan = plan + (RouteService(self.current_route, frequency, False),)
+        return self.evaluate_plan(plan)
+
     def step(self, action: Action) -> StepResult:
         if self.done:
             raise RuntimeError("Episode finished; call reset()")
@@ -199,7 +215,14 @@ class TransitEnvironment:
 
         reward = 0.0
         # --- passenger assignment after meaningful operational changes -------
-        if plan_changed and (self.cfg.evaluate_after_each_change or self.cfg.reward_mode == "delta"):
+        if self.cfg.reward_mode == "dense":
+            new_eval = self._evaluate_action_plan()
+            reward = new_eval.reward["total_reward"] - self._current_eval.reward["total_reward"]
+            self._current_eval = new_eval
+            info["reward_breakdown"] = new_eval.reward
+            info["tentative_route_scored"] = bool(
+                self.current_route and self.masker.end_route_frequency(self.state) is not None)
+        elif plan_changed and (self.cfg.evaluate_after_each_change or self.cfg.reward_mode == "delta"):
             new_eval = self.evaluate_plan(self.current_plan)
             info["reward_breakdown"] = new_eval.reward
             if self.cfg.reward_mode == "delta":
@@ -233,6 +256,12 @@ class TransitEnvironment:
         if self.cfg.reward_mode == "delta":
             # Any change since the last evaluation was already rewarded.
             reward = final.reward["total_reward"] - self._current_eval.reward["total_reward"]
+        elif self.cfg.reward_mode == "dense":
+            # Undo any tentative service discarded at the deadline, and restore
+            # the hour's starting score. Intermediate deltas + this correction
+            # sum to the committed plan's score, even with an inherited plan.
+            reward = (final.reward["total_reward"] - self._current_eval.reward["total_reward"]
+                      + self._hour_start_reward)
 
         p_t = reset_kept_flags(self.current_plan)
         self.hourly_plans[self.hour] = p_t   # P[t] (immutable copy)

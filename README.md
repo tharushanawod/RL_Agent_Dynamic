@@ -26,7 +26,7 @@ python tests/smoke_test.py
 | 2 | RL step | One agent action (`TransitEnvironment.step`). An hour takes many steps. |
 | 3 | State | `(t, OD_t, R_current, P_current, P_{t-1}, F_remaining)` (`environment/state.py`). OD is the full 15×15 tuple, the route is the full stop sequence, both plans are full `(route, frequency[, kept])` records. |
 | 4 | Action | `Action(type, arg)`: `ADD_STOP(j)`, `REMOVE_LAST_STOP`, `END_ROUTE`, `INCREASE_FREQUENCY(k)`, `DECREASE_FREQUENCY(k)`, `KEEP_ROUTE(k)`, `REMOVE_ROUTE(k)`, `FINISH_PLAN`; `k` = index in the current plan. |
-| 5 | Passenger assignment | Re-run after `END_ROUTE`, `INCREASE/DECREASE_FREQUENCY`, `REMOVE_ROUTE` and at `FINISH_PLAN`. Not re-run during `ADD_STOP`/`REMOVE_LAST_STOP` unless `ASSIGN_AFTER_ROUTE_CONSTRUCTION_STEPS`. |
+| 5 | Passenger assignment | In default dense mode, evaluate after every action, including feasible tentative routes during `ADD_STOP`/`REMOVE_LAST_STOP`. Legacy modes evaluate operational changes and final plans; construction feedback is optional via `ASSIGN_AFTER_ROUTE_CONSTRUCTION_STEPS`. |
 | 6 | OD never reduced | Matrices are loaded read-only. Every assignment starts from the original OD_t plus the current plan. Results go into separate `assigned/unserved/direct/transfer_demand` arrays. |
 | 7 | Fleet | `v_k = ceil(f_k·T_k/60)`, `F_remaining = MAX_FLEET − Σv_k`, recomputed from the plan. Removing a route or lowering a frequency returns its buses automatically. Masking blocks increases that would exceed the fleet. |
 | 8 | Previous plan | At hour start `previous_plan = P[t−1]`. Plans are immutable tuples (equivalent to deepcopy), so `P[t−1]` can never be changed. At `FINISH_PLAN`, `P[t] = current_plan`. |
@@ -36,6 +36,17 @@ python tests/smoke_test.py
 | 12 | Hour t → t+1 | `FINISH_PLAN` (or the step limit) → evaluate P_t → store the hourly record → `hour += 1` → `previous_plan = P_t`, `current_plan = copy of P_t` (kept flags cleared). The Q-update bootstraps across the hour boundary, so hours are linked through the return. Hour 24 is terminal. |
 
 All modelling assumptions are marked `# ASSUMPTION:` in `transit_rl/config.py`.
+
+The default discount factor is **1.0**. The default `REWARD_MODE="dense"`
+returns immediate score differences after every action, including construction
+of a feasible tentative route. A single stop, an unchanged service decision,
+or committing an already scored tentative route can have zero reward. Tentative
+routes do not reserve buses or enter the saved service plan until committed.
+At each hourly finish, a correction restores the starting score and removes
+any discarded tentative service, so action rewards sum to the final hourly
+plan reward. The daily learning return therefore equals the sum of all 24
+hourly plan rewards. Legacy `terminal` and `delta` modes remain available;
+`delta` alone optimizes differences from hourly starting plans.
 
 ## Outputs (`transit_rl/results/`)
 

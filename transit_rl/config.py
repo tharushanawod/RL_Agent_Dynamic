@@ -23,7 +23,7 @@ PACKAGE_DIR = Path(__file__).resolve().parent
 # 1. Q-LEARNING PARAMETERS
 # =============================================================================
 LEARNING_RATE = 0.1
-DISCOUNT_FACTOR = 0.95
+DISCOUNT_FACTOR = 1.0
 INITIAL_EPSILON = 1.0
 MIN_EPSILON = 0.05
 NUM_EPISODES = 10000
@@ -148,7 +148,8 @@ MAX_ACCEPTABLE_TRIP_MINUTES: Optional[float] = None
 IGNORE_OD_DIAGONAL = True
 # ASSUMPTION: assignment is uncapacitated; BUS_CAPACITY is used to compute the
 # number of passengers exceeding route capacity, which is penalised in reward.
-# Passenger assignment is NOT re-run after ADD_STOP / REMOVE_LAST_STOP unless:
+# In terminal/delta modes, assignment during route construction is optional.
+# Dense mode always evaluates feasible tentative routes for immediate feedback.
 ASSIGN_AFTER_ROUTE_CONSTRUCTION_STEPS = False
 # Re-run assignment after every meaningful operational change (spec default).
 EVALUATE_AFTER_EACH_CHANGE = True
@@ -180,7 +181,11 @@ APPLY_TRANSITION_COST_FIRST_HOUR = False
 #             finished.  Daily return = sum_t R(P_t) (the true objective).
 # "delta":    after each operational change reward = R(new plan) - R(old plan)
 #             (denser; the hour's rewards telescope to R(P_t) - R(start plan)).
-REWARD_MODE = "terminal"  # ASSUMPTION
+# "dense":    after every action reward = change in evaluated plan score,
+#             including feasible tentative routes. At hour end, reconcile to
+#             the committed plan and add the starting score. With gamma = 1,
+#             hourly rewards sum exactly to R(P_t), preserving the objective.
+REWARD_MODE = "dense"  # ASSUMPTION
 
 # ---- service component (higher = better) --------------------------------
 W_SERVICE_TRAVEL_TIME = 1.0
@@ -351,7 +356,9 @@ class ExperimentConfig:
             (self.current_plan_start_mode in ("copy_previous", "empty"), "bad CURRENT_PLAN_START_MODE"),
             (self.path_choice_rule in ("min_transfers_first", "min_generalised_time"), "bad PATH_CHOICE_RULE"),
             (self.route_matching_method in ("hungarian", "greedy"), "bad ROUTE_MATCHING_METHOD"),
-            (self.reward_mode in ("terminal", "delta"), "bad REWARD_MODE"),
+            (self.reward_mode in ("terminal", "delta", "dense"), "bad REWARD_MODE"),
+            (self.reward_mode != "dense" or self.discount_factor == 1.0,
+             "dense rewards require discount_factor = 1 to preserve the daily objective"),
             (self.qtable_csv_od_mode in ("inline", "reference"), "bad QTABLE_CSV_OD_MODE"),
             (self.max_steps_per_hour >= 1, "max_steps_per_hour >= 1"),
             (self.input_stop_id_base in (0, 1), "input_stop_id_base must be 0 or 1"),
